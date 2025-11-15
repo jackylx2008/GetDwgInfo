@@ -6,6 +6,8 @@ dwg/
 dxf/
 *.yaml
 # AutoCAD lock files
+*.dwg
+*.dxf
 *.dwl
 *.dwl2
 *.bak
