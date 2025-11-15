@@ -4,7 +4,11 @@ output/
 input/
 dwg/
 dxf/
-*.yaml 
+*.yaml
+# AutoCAD lock files
+*.dwl
+*.dwl2
+*.bak
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

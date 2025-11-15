@@ -96,8 +96,12 @@ def convert_dwg_to_dxf(dwg_dir="dwg", dxf_dir="dxf"):
             logger.info("转换: %s -> %s", dwg_file.name, dxf_file.name)
 
             # 打开 DWG 文件
+            # 使用绝对路径，并设置为只读模式
             dwg_fullpath = str(dwg_file.absolute())
-            doc = acad.Documents.Open(dwg_fullpath)
+
+            # Open 参数: (FileName, [ReadOnly])
+            # ReadOnly = True 以只读模式打开
+            doc = acad.Documents.Open(dwg_fullpath, True)
 
             # 保存为 DXF
             dxf_fullpath = str(dxf_file.absolute())
