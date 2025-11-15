@@ -103,6 +103,11 @@ def convert_dwg_to_dxf(dwg_dir="dwg", dxf_dir="dxf"):
             # ReadOnly = True 以只读模式打开
             doc = acad.Documents.Open(dwg_fullpath, True)
 
+            # 等待文档完全加载
+            import time
+
+            time.sleep(1)
+
             # 保存为 DXF
             dxf_fullpath = str(dxf_file.absolute())
 
@@ -112,13 +117,29 @@ def convert_dwg_to_dxf(dwg_dir="dwg", dxf_dir="dxf"):
 
             # 使用 DXFOUT 命令导出 DXF
             # 这会弹出保存对话框，但能保证正确转换
-            import time
-
             cmd = '_DXFOUT "' + dxf_fullpath + '" 16 \n'
-            doc.SendCommand(cmd)
 
-            # 等待命令完成（根据文件大小可能需要更长时间）
-            time.sleep(2)
+            # 发送命令，增加重试机制
+            retry_count = 3
+            for attempt in range(retry_count):
+                try:
+                    doc.SendCommand(cmd)
+                    break
+                except Exception as send_error:
+                    if attempt < retry_count - 1:
+                        logger.warning(
+                            "发送命令失败 (尝试 %d/%d): %s",
+                            attempt + 1,
+                            retry_count,
+                            str(send_error),
+                        )
+                        time.sleep(1)
+                    else:
+                        raise
+
+            # 等待命令完成（增加等待时间）
+            time.sleep(3)
+
             # 关闭文档
             doc.Close(False)
 
@@ -128,6 +149,13 @@ def convert_dwg_to_dxf(dwg_dir="dwg", dxf_dir="dxf"):
         except Exception as e:
             logger.error("[FAILED] 转换失败 %s: %s", dwg_file.name, str(e))
             failed_files.append(dwg_file.name)
+
+            # 尝试关闭可能打开的文档
+            try:
+                if "doc" in locals() and doc is not None:
+                    doc.Close(False)
+            except Exception:
+                pass
             continue
 
     # 输出总结
