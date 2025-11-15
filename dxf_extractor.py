@@ -457,22 +457,60 @@ if __name__ == "__main__":
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
     )
 
-    # 创建提取器
-    extractor = DXFExtractor()
+    from pathlib import Path
 
-    # 提取 DXF 文件
-    try:
-        elements = extractor.extract_from_file("input/test.dxf")
+    # 定义输入输出目录
+    input_dir = Path("input")
+    output_dir = Path("output")
 
-        print("\n提取结果:")
-        print(f"文本: {len(elements['texts'])} 个")
-        print(f"线条: {len(elements['lines'])} 个")
-        print(f"矩形: {len(elements['rects'])} 个")
-        print(f"圆形: {len(elements['circles'])} 个")
+    # 确保输出目录存在
+    output_dir.mkdir(exist_ok=True)
 
-        # 保存到 CSV
-        extractor.save_to_csv("output/dxf_elements.csv")
-        print("\n✓ 已保存到 output/dxf_elements.csv")
+    # 获取所有 DXF 文件
+    dxf_files = list(input_dir.glob("*.dxf"))
 
-    except Exception as e:
-        print(f"\n✗ 提取失败: {e}")
+    if not dxf_files:
+        print("未在 input 目录下找到 DXF 文件")
+    else:
+        print(f"找到 {len(dxf_files)} 个 DXF 文件\n")
+
+        success_count = 0
+        fail_count = 0
+
+        # 遍历处理每个 DXF 文件
+        for dxf_file in dxf_files:
+            print(f"正在处理: {dxf_file.name}")
+
+            try:
+                # 创建提取器
+                extractor = DXFExtractor()
+
+                # 提取 DXF 文件
+                elements = extractor.extract_from_file(str(dxf_file))
+
+                print("  提取结果:")
+                print(f"  - 文本: {len(elements['texts'])} 个")
+                print(f"  - 线条: {len(elements['lines'])} 个")
+                print(f"  - 矩形: {len(elements['rects'])} 个")
+                print(f"  - 圆形: {len(elements['circles'])} 个")
+
+                # 生成输出文件名 (使用原文件名)
+                output_filename = dxf_file.stem + "_elements.csv"
+                output_path = output_dir / output_filename
+
+                # 保存到 CSV
+                extractor.save_to_csv(str(output_path))
+                print(f"  [SUCCESS] 已保存到: {output_path}\n")
+
+                success_count += 1
+
+            except Exception as e:
+                print(f"  [FAILED] 提取失败: {e}\n")
+                fail_count += 1
+
+        # 输出总结
+        print("=" * 50)
+        print("处理完成!")
+        print(f"成功: {success_count} 个文件")
+        print(f"失败: {fail_count} 个文件")
+        print("=" * 50)
