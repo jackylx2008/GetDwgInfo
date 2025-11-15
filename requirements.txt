@@ -1,0 +1,22 @@
+# GetDwgInfo 项目依赖包
+
+# AutoCAD COM 接口库（需要安装 AutoCAD）
+pyautocad
+pywin32
+
+# YAML 配置文件解析
+PyYAML>=6.0
+
+# DXF 文件读取库（用于 dxf_extractor.py）
+ezdxf>=1.0.0
+
+# 注意：以下是 Python 标准库，不需要额外安装
+# - logging
+# - csv
+# - argparse
+# - dataclasses (Python 3.7+)
+# - os
+# - sys
+# - math
+# - typing
+# - datetime

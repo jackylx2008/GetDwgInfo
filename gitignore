@@ -1,8 +1,8 @@
-## Python.gitignore
-# Private files like yaml output input
+# Python.gitignore
+# Privated files like yaml output input
 output/
 input/
-*.yaml 
+*.yaml
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
