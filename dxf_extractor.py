@@ -283,14 +283,12 @@ class DXFExtractor:
             if hasattr(entity, "get_points"):
                 # LWPOLYLINE - get_points() 返回 'format' 格式的点
                 # 需要指定格式，默认 'xyb' 包含 x, y, bulge
-                points = list(entity.get_points('xy'))  # 只获取 x, y
+                points = list(entity.get_points("xy"))  # 只获取 x, y
                 vertices = [(p[0], p[1], 0.0) for p in points]
             elif hasattr(entity, "points"):
                 # POLYLINE
                 points = list(entity.points())
-                vertices = [
-                    (p[0], p[1], p[2] if len(p) > 2 else 0.0) for p in points
-                ]
+                vertices = [(p[0], p[1], p[2] if len(p) > 2 else 0.0) for p in points]
 
             if len(vertices) < 3:
                 return
