@@ -17,7 +17,7 @@ def test_dwg_extractor():
     print("=" * 70)
 
     # 设置日志
-    logger = setup_logger(log_level=logging.INFO)
+    setup_logger(log_level=logging.INFO)
 
     # 测试文件路径
     dwg_file = "input/test.dwg"
@@ -37,7 +37,9 @@ def test_dwg_extractor():
     # 测试连接和提取
     print("\n[2/5] 连接 AutoCAD 并打开文件...")
     try:
-        elements_dict = extractor.extract_from_file(dwg_file)
+        elements_dict = extractor.extract_from_file(
+            dwg_file, extract_config={}  # 使用默认配置
+        )
         print("✓ 文件提取成功")
     except FileNotFoundError as e:
         print(f"✗ 文件不存在: {e}")
@@ -163,7 +165,7 @@ def test_custom_config():
     print("测试自定义提取配置")
     print("=" * 70)
 
-    logger = setup_logger(log_level=logging.INFO)
+    setup_logger(log_level=logging.INFO)
     extractor = DWGExtractor()
     dwg_file = "input/test.dwg"
 

@@ -10,8 +10,6 @@ import logging
 from dataclasses import dataclass, asdict, field
 from typing import List, Dict, Any, Optional
 import ezdxf
-from ezdxf.document import Drawing
-from ezdxf.entities import Text, MText, Line, LWPolyline, Polyline, Circle
 
 
 @dataclass
@@ -122,7 +120,7 @@ class DXFExtractor:
             }
 
         try:
-            self.logger.info(f"开始提取 DXF 文件: {dxf_path}")
+            self.logger.info("开始提取 DXF 文件: %s", dxf_path)
 
             # 检查文件是否存在
             if not os.path.exists(dxf_path):
@@ -133,8 +131,8 @@ class DXFExtractor:
 
             # 打开 DXF 文件
             try:
-                doc = ezdxf.readfile(dxf_path)
-                self.logger.info(f"成功打开文件: {dxf_path}")
+                doc = ezdxf.readfile(dxf_path)  # type: ignore
+                self.logger.info("成功打开文件: %s", dxf_path)
             except Exception as e:
                 raise RuntimeError(f"无法打开 DXF 文件: {str(e)}")
 
@@ -152,10 +150,11 @@ class DXFExtractor:
 
             # 统计实体数量
             entity_count = len(list(msp))
-            self.logger.info(f"模型空间中共有 {entity_count} 个实体")
+            self.logger.info("模型空间中共有 %d 个实体", entity_count)
 
             # 遍历所有实体
             for entity in msp:
+                entity_type = "Unknown"  # 初始化默认值
                 try:
                     entity_type = entity.dxftype()
 
@@ -189,22 +188,22 @@ class DXFExtractor:
 
                 except Exception as e:
                     self.logger.warning(
-                        f"提取实体时出错: {entity_type if 'entity_type' in locals() else 'Unknown'}, "
-                        f"错误: {str(e)}"
+                        "提取实体时出错: %s, 错误: %s", entity_type, str(e)
                     )
                     continue
 
             self.logger.info(
-                f"提取完成 - 文本: {len(self.elements['texts'])}, "
-                f"线条: {len(self.elements['lines'])}, "
-                f"矩形: {len(self.elements['rects'])}, "
-                f"圆形: {len(self.elements['circles'])}"
+                "提取完成 - 文本: %d, 线条: %d, 矩形: %d, 圆形: %d",
+                len(self.elements["texts"]),
+                len(self.elements["lines"]),
+                len(self.elements["rects"]),
+                len(self.elements["circles"]),
             )
 
             return self.elements
 
         except Exception as e:
-            self.logger.error(f"读取 DXF 文件失败: {str(e)}")
+            self.logger.error("读取 DXF 文件失败: %s", str(e))
             raise
 
     def _extract_text(self, entity):
@@ -240,7 +239,7 @@ class DXFExtractor:
             self.elements["texts"].append(asdict(text_elem))
 
         except Exception as e:
-            self.logger.warning(f"提取文本元素失败: {str(e)}")
+            self.logger.warning("提取文本元素失败: %s", str(e))
 
     def _extract_line(self, entity):
         """提取线条元素"""
@@ -273,7 +272,7 @@ class DXFExtractor:
             self.elements["lines"].append(asdict(line_elem))
 
         except Exception as e:
-            self.logger.warning(f"提取线条元素失败: {str(e)}")
+            self.logger.warning("提取线条元素失败: %s", str(e))
 
     def _extract_polyline(self, entity):
         """提取多段线元素，识别矩形"""
@@ -349,7 +348,7 @@ class DXFExtractor:
             self.elements["polylines"].append(asdict(polyline_elem))
 
         except Exception as e:
-            self.logger.warning(f"提取多段线元素失败: {str(e)}")
+            self.logger.warning("提取多段线元素失败: %s", str(e))
 
     def _extract_circle(self, entity):
         """提取圆形元素"""
@@ -375,7 +374,7 @@ class DXFExtractor:
             self.elements["circles"].append(asdict(circle_elem))
 
         except Exception as e:
-            self.logger.warning(f"提取圆形元素失败: {str(e)}")
+            self.logger.warning("提取圆形元素失败: %s", str(e))
 
     def get_all_elements(self) -> List[Dict[str, Any]]:
         """
@@ -444,10 +443,10 @@ class DXFExtractor:
                 writer.writeheader()
                 writer.writerows(all_elements)
 
-            self.logger.info(f"成功保存 {len(all_elements)} 个元素到: {output_path}")
+            self.logger.info("成功保存 %d 个元素到: %s", len(all_elements), output_path)
 
         except Exception as e:
-            self.logger.error(f"保存 CSV 文件失败: {str(e)}")
+            self.logger.error("保存 CSV 文件失败: %s", str(e))
             raise
 
 
@@ -465,7 +464,7 @@ if __name__ == "__main__":
     try:
         elements = extractor.extract_from_file("input/test.dxf")
 
-        print(f"\n提取结果:")
+        print("\n提取结果:")
         print(f"文本: {len(elements['texts'])} 个")
         print(f"线条: {len(elements['lines'])} 个")
         print(f"矩形: {len(elements['rects'])} 个")
@@ -473,7 +472,7 @@ if __name__ == "__main__":
 
         # 保存到 CSV
         extractor.save_to_csv("output/dxf_elements.csv")
-        print(f"\n✓ 已保存到 output/dxf_elements.csv")
+        print("\n✓ 已保存到 output/dxf_elements.csv")
 
     except Exception as e:
         print(f"\n✗ 提取失败: {e}")

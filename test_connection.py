@@ -16,7 +16,7 @@ def test_pyautocad():
     # 测试导入
     print("\n1. 测试导入 pyautocad...")
     try:
-        from pyautocad import Autocad, APoint
+        from pyautocad import Autocad
 
         print("   ✓ pyautocad 导入成功")
     except ImportError as e:
@@ -34,7 +34,7 @@ def test_pyautocad():
         try:
             version = acad.app.Version
             print(f"   AutoCAD 版本: {version}")
-        except:
+        except Exception:
             print("   无法获取 AutoCAD 版本")
 
         # 获取当前文档信息
@@ -45,7 +45,7 @@ def test_pyautocad():
                 print(f"   当前文档: {doc_name}")
             else:
                 print("   没有打开的文档")
-        except:
+        except Exception:
             print("   无法获取当前文档信息")
 
         print("\n✓ 所有测试通过!")

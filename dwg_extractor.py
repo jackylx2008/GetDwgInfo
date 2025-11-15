@@ -8,15 +8,15 @@ DWG 元素提取模块。
 import logging
 import os
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from dataclasses import dataclass, asdict
 
 try:
-    from pyautocad import Autocad, APoint
     import win32com.client
 
     PYAUTOCAD_AVAILABLE = True
 except ImportError:
+    win32com = None
     PYAUTOCAD_AVAILABLE = False
 
 
@@ -96,7 +96,7 @@ class DWGExtractor:
         }
 
     def extract_from_file(
-        self, dwg_path: str, extract_config: Dict[str, bool] = None
+        self, dwg_path: str, extract_config: Dict[str, bool]
     ) -> Dict[str, List]:
         """
         从 DWG 文件中提取元素。
@@ -118,7 +118,7 @@ class DWGExtractor:
         original_doc = None
 
         try:
-            self.logger.info(f"开始提取 DWG 文件: {dwg_path}")
+            self.logger.info("开始提取 DWG 文件: %s", dwg_path)
 
             # 检查文件是否存在
             if not os.path.exists(dwg_path):
@@ -126,9 +126,11 @@ class DWGExtractor:
 
             # 获取绝对路径
             dwg_path = os.path.abspath(dwg_path)
-
             # 连接到 AutoCAD - 使用 win32com 直接连接
+            if not PYAUTOCAD_AVAILABLE or win32com is None:
+                raise RuntimeError("无法连接到 AutoCAD：未安装 pywin32 (win32com) 模块，请先安装。")
             try:
+                # 尝试获取已运行的 AutoCAD 实例
                 # 尝试获取已运行的 AutoCAD 实例
                 acad_app = None
                 progids = [
@@ -144,9 +146,9 @@ class DWGExtractor:
                 for progid in progids:
                     try:
                         acad_app = win32com.client.GetActiveObject(progid)
-                        self.logger.info(f"连接到已运行的 AutoCAD: {progid}")
+                        self.logger.info("连接到已运行的 AutoCAD: %s", progid)
                         break
-                    except:
+                    except Exception:
                         continue
 
                 # 如果没有运行实例，尝试启动新实例
@@ -155,11 +157,11 @@ class DWGExtractor:
                         try:
                             acad_app = win32com.client.Dispatch(progid)
                             acad_app.Visible = True
-                            self.logger.info(f"启动新的 AutoCAD 实例: {progid}")
+                            self.logger.info("启动新的 AutoCAD 实例: %s", progid)
                             # 等待 AutoCAD 初始化
                             time.sleep(2)
                             break
-                        except:
+                        except Exception:
                             continue
 
                 if acad_app is None:
@@ -168,12 +170,14 @@ class DWGExtractor:
                 self.logger.info("成功连接到 AutoCAD")
             except Exception as e:
                 raise RuntimeError(
-                    f"无法连接到 AutoCAD，请确保 AutoCAD 已安装并可以启动。错误: {str(e)}"
-                )  # 保存当前文档引用
+                    f"无法连接到 AutoCAD，请确保 AutoCAD 已安装并可以启动。"
+                    f"错误: {str(e)}"
+                )
+            # 保存当前文档引用
             try:
                 if acad_app.Documents.Count > 0:
                     original_doc = acad_app.ActiveDocument
-            except:
+            except Exception:
                 original_doc = None
 
             # 打开 DWG 文件
@@ -185,7 +189,7 @@ class DWGExtractor:
                 acad_app.ActiveDocument = doc
                 # 重新获取活动文档引用以确保正确
                 doc = acad_app.ActiveDocument
-                self.logger.info(f"成功打开文件: {dwg_path}")
+                self.logger.info("成功打开文件: %s", dwg_path)
             except Exception as e:
                 raise RuntimeError(f"无法打开 DWG 文件: {str(e)}")
 
@@ -203,19 +207,22 @@ class DWGExtractor:
 
             # 获取实体数量
             entity_count = modelspace.Count
-            self.logger.info(f"模型空间中共有 {entity_count} 个实体")
+            self.logger.info("模型空间中共有 %d 个实体", entity_count)
 
             # 遍历所有实体 - 使用索引方式而不是迭代器
             for i in range(entity_count):
+                entity_type = "Unknown"  # 初始化默认值
                 try:
                     entity = modelspace.Item(i)
                     entity_type = entity.ObjectName
 
                     # 提取文本元素
-                    if extract_config.get("extract_text", True) and entity_type in [
+                    if (
+                        extract_config.get("extract_text", True) and 
+                        entity_type in [
                         "AcDbText",
                         "AcDbMText",
-                    ]:
+                    ]):
                         self._extract_text(entity)
 
                     # 提取线条元素
@@ -226,11 +233,11 @@ class DWGExtractor:
                         self._extract_line(entity)
 
                     # 提取多段线（可能是矩形）
-                    elif extract_config.get("extract_rects", True) and entity_type in [
+                    elif (extract_config.get("extract_rects", True) and entity_type in [
                         "AcDbPolyline",
                         "AcDb2dPolyline",
                         "AcDbLwPolyline",
-                    ]:
+                    ]):
                         self._extract_polyline(entity)
 
                     # 提取圆形
@@ -242,22 +249,22 @@ class DWGExtractor:
 
                 except Exception as e:
                     self.logger.warning(
-                        f"提取实体时出错: {entity_type if 'entity_type' in locals() else 'Unknown'}, "
-                        f"错误: {str(e)}"
+                        "提取实体时出错: %s, 错误: %s", entity_type, str(e)
                     )
                     continue
 
             self.logger.info(
-                f"提取完成 - 文本: {len(self.elements['texts'])}, "
-                f"线条: {len(self.elements['lines'])}, "
-                f"矩形: {len(self.elements['rects'])}, "
-                f"圆形: {len(self.elements['circles'])}"
+                "提取完成 - 文本: %d, 线条: %d, 矩形: %d, 圆形: %d",
+                len(self.elements["texts"]),
+                len(self.elements["lines"]),
+                len(self.elements["rects"]),
+                len(self.elements["circles"]),
             )
 
             return self.elements
 
         except Exception as e:
-            self.logger.error(f"读取 DWG 文件失败: {str(e)}")
+            self.logger.error("读取 DWG 文件失败: %s", str(e))
             raise
 
         finally:
@@ -267,7 +274,7 @@ class DWGExtractor:
                     doc.Close(False)  # False = 不保存更改
                     self.logger.info("已关闭 DWG 文件")
                 except Exception as e:
-                    self.logger.warning(f"关闭文档时出错: {str(e)}")
+                    self.logger.warning("关闭文档时出错: %s", str(e))
 
             # 恢复原始文档
             if (
@@ -277,7 +284,7 @@ class DWGExtractor:
             ):
                 try:
                     acad_app.ActiveDocument = original_doc
-                except:
+                except Exception:
                     pass
 
     def _safe_get_attribute(self, entity, attr_name, default=None, max_retries=3):
@@ -287,7 +294,7 @@ class DWGExtractor:
                 if hasattr(entity, attr_name):
                     return getattr(entity, attr_name)
                 return default
-            except Exception as e:
+            except Exception:
                 if attempt < max_retries - 1:
                     time.sleep(0.01)  # 等待10毫秒后重试
                     continue
@@ -300,7 +307,7 @@ class DWGExtractor:
             text_elem = TextElement()
 
             # 获取文本内容
-            text_elem.content = self._safe_get_attribute(entity, "TextString", "")
+            text_elem.content = str(self._safe_get_attribute(entity, "TextString", ""))
 
             # 如果文本为空，跳过
             if not text_elem.content:
@@ -320,16 +327,17 @@ class DWGExtractor:
                     text_elem.z = origin[2] if len(origin) > 2 else 0.0
 
             # 获取其他属性
-            text_elem.height = self._safe_get_attribute(entity, "Height", 0.0)
-            text_elem.rotation = self._safe_get_attribute(entity, "Rotation", 0.0)
-            text_elem.color = self._safe_get_attribute(entity, "Color", 7)
-            text_elem.layer = self._safe_get_attribute(entity, "Layer", "")
-            text_elem.style = self._safe_get_attribute(entity, "StyleName", "")
+            text_elem.height = float(self._safe_get_attribute(entity, "Height", 0.0))
+            text_elem.rotation = float(self._safe_get_attribute(entity, "Rotation", 0.0))
+            color_val = self._safe_get_attribute(entity, "Color", 7)
+            text_elem.color = int(color_val) if color_val is not None else 7
+            text_elem.layer = str(self._safe_get_attribute(entity, "Layer", ""))
+            text_elem.style = str(self._safe_get_attribute(entity, "StyleName", ""))
 
             self.elements["texts"].append(asdict(text_elem))
 
         except Exception as e:
-            self.logger.warning(f"提取文本元素失败: {str(e)}")
+            self.logger.warning("提取文本元素失败: %s", str(e))
 
     def _extract_line(self, entity):
         """提取线条元素"""
@@ -348,18 +356,17 @@ class DWGExtractor:
                 line_elem.end_x = end[0]
                 line_elem.end_y = end[1]
                 line_elem.end_z = end[2] if len(end) > 2 else 0.0
-
             # 获取其他属性
-            line_elem.color = self._safe_get_attribute(entity, "Color", 7)
-            line_elem.layer = self._safe_get_attribute(entity, "Layer", "")
-            line_elem.linetype = self._safe_get_attribute(entity, "Linetype", "")
-            line_elem.lineweight = self._safe_get_attribute(entity, "Lineweight", -1)
+            color_val = self._safe_get_attribute(entity, "Color", 7)
+            lw_val = self._safe_get_attribute(entity, "Lineweight", -1)
+            line_elem.lineweight = int(lw_val) if lw_val is not None else -1
 
             self.elements["lines"].append(asdict(line_elem))
 
         except Exception as e:
-            self.logger.warning(f"提取线条元素失败: {str(e)}")
+            self.logger.warning("提取线条元素失败: %s", str(e))
 
+        except Exception as e:
     def _extract_polyline(self, entity):
         """提取多段线元素，识别矩形"""
         try:
@@ -375,6 +382,16 @@ class DWGExtractor:
             # 检查是否为闭合多段线
             is_closed = entity.Closed if hasattr(entity, "Closed") else False
 
+            # 记录多段线
+            polyline_data = {
+                "type": "POLYLINE",
+                "vertices": vertices,
+                "is_closed": is_closed,
+                "color": int(self._safe_get_attribute(entity, "Color", 7)),
+                "layer": str(self._safe_get_attribute(entity, "Layer", "")),
+            }
+            self.elements["polylines"].append(polyline_data)
+
             # 如果是闭合的4个顶点，可能是矩形
             if is_closed and len(vertices) == 4:
                 rect_elem = RectElement()
@@ -388,50 +405,45 @@ class DWGExtractor:
 
                 rect_elem.x = min_x
                 rect_elem.y = min_y
-                rect_elem.z = vertices[0][2] if len(vertices[0]) > 2 else 0.0
                 rect_elem.width = max_x - min_x
                 rect_elem.height = max_y - min_y
-                rect_elem.color = entity.Color if hasattr(entity, "Color") else 7
-                rect_elem.layer = entity.Layer if hasattr(entity, "Layer") else ""
+                color_val = self._safe_get_attribute(entity, "Color", 7)
+                rect_elem.color = (
+                    int(color_val) if color_val is not None
+                    else 7)
+                rect_elem.layer = str(
+                    self._safe_get_attribute(entity, "Layer", ""))
                 rect_elem.is_closed = is_closed
 
                 self.elements["rects"].append(asdict(rect_elem))
-            else:
-                # 存储为一般多段线
-                polyline_data = {
-                    "type": "POLYLINE",
-                    "vertices": vertices,
-                    "is_closed": is_closed,
-                    "color": entity.Color if hasattr(entity, "Color") else 7,
-                    "layer": entity.Layer if hasattr(entity, "Layer") else "",
-                }
-                self.elements["polylines"].append(polyline_data)
 
         except Exception as e:
-            self.logger.warning(f"提取多段线元素失败: {str(e)}")
-
+            self.logger.warning("提取多段线元素失败: %s", str(e))
     def _extract_circle(self, entity):
         """提取圆形元素"""
         try:
             circle_elem = CircleElement()
 
             # 获取圆心和半径
-            if hasattr(entity, "Center"):
-                center = entity.Center
+            center = self._safe_get_attribute(entity, "Center")
+            if center:
                 circle_elem.center_x = center[0]
                 circle_elem.center_y = center[1]
                 circle_elem.center_z = center[2] if len(center) > 2 else 0.0
-
-            circle_elem.radius = entity.Radius if hasattr(entity, "Radius") else 0.0
+            circle_elem.radius = float(
+                self._safe_get_attribute(entity, "Radius", 0.0))
 
             # 获取其他属性
-            circle_elem.color = entity.Color if hasattr(entity, "Color") else 7
-            circle_elem.layer = entity.Layer if hasattr(entity, "Layer") else ""
+            color_val = self._safe_get_attribute(entity, "Color", 7)
+            circle_elem.color = (
+                int(color_val) if color_val is not None else 7)
+            circle_elem.layer = str(
+                self._safe_get_attribute(entity, "Layer", ""))
 
             self.elements["circles"].append(asdict(circle_elem))
 
         except Exception as e:
-            self.logger.warning(f"提取圆形元素失败: {str(e)}")
+            self.logger.warning("提取圆形元素失败: %s", str(e))
 
     def get_all_elements(self) -> List[Dict[str, Any]]:
         """
@@ -482,9 +494,9 @@ class DWGExtractor:
                 writer.writeheader()
                 writer.writerows(all_elements)
 
-            self.logger.info(f"成功保存 {len(all_elements)} 个元素到 {filepath}")
+            self.logger.info("成功保存 %d 个元素到 %s", len(all_elements), filepath)
             return filepath
 
         except Exception as e:
-            self.logger.error(f"保存CSV文件失败: {str(e)}")
+            self.logger.error("保存CSV文件失败: %s", str(e))
             raise
