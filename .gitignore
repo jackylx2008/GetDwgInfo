@@ -2,6 +2,8 @@
 # Private files like yaml output input
 output/
 input/
+dwg/
+dxf/
 *.yaml 
 # Byte-compiled / optimized / DLL files
 __pycache__/
