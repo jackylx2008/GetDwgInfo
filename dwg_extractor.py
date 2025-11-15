@@ -366,7 +366,6 @@ class DWGExtractor:
         except Exception as e:
             self.logger.warning("提取线条元素失败: %s", str(e))
 
-        except Exception as e:
     def _extract_polyline(self, entity):
         """提取多段线元素，识别矩形"""
         try:

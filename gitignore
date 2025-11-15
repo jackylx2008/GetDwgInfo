@@ -3,7 +3,9 @@
 output/
 input/
 *.yaml
-# Byte-compiled / optimized / DLL files
+dwg/
+dxf/
+# Bwyte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
 *$py.class
