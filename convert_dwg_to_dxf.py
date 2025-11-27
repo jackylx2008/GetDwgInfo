@@ -175,7 +175,11 @@ def convert_dwg_to_dxf(dwg_dir="dwg", dxf_dir="dxf"):
 def main():
     """主函数"""
     # 设置日志
-    setup_logger(log_level=logging.INFO)
+    setup_logger(
+        log_level=logging.INFO,
+        log_file="./logs/convert_dwg_to_dxf.log",
+        filemode="w",
+    )
 
     print("=" * 70)
     print("DWG 转 DXF 批量转换工具")

@@ -17,7 +17,11 @@ def test_dwg_extractor():
     print("=" * 70)
 
     # 设置日志
-    setup_logger(log_level=logging.INFO)
+    setup_logger(
+        log_level=logging.INFO,
+        log_file="./logs/test_dwg_extractor.log",
+        filemode="w",
+    )
 
     # 测试文件路径
     dwg_file = "input/test.dwg"

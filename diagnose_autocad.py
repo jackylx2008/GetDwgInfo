@@ -45,15 +45,15 @@ def diagnose_autocad_com():
             try:
                 version = obj.Version
                 print(f"     版本: {version}")
-            except:
+            except Exception:
                 pass
             found_progids.append(progid)
             # 关闭
             try:
                 obj.Quit()
-            except:
+            except Exception:
                 pass
-        except Exception as e:
+        except Exception:
             print(f"   ✗ {progid}: 不可用")
 
     if not found_progids:
@@ -76,10 +76,10 @@ def diagnose_autocad_com():
             print(f"   ✓ 找到运行中的实例: {progid}")
             try:
                 print(f"     文档数量: {acad.Documents.Count}")
-            except:
+            except Exception:
                 pass
             break
-        except:
+        except Exception:
             print(f"   - {progid}: 未运行")
 
     # 4. 测试创建新实例
@@ -88,7 +88,7 @@ def diagnose_autocad_com():
     try:
         acad = win32com.client.Dispatch(found_progids[0])
         acad.Visible = True
-        print(f"   ✓ 成功启动 AutoCAD")
+        print("   ✓ 成功启动 AutoCAD")
         print(f"   版本: {acad.Version}")
         print(f"   名称: {acad.Name}")
 
@@ -96,7 +96,7 @@ def diagnose_autocad_com():
         try:
             acad.Quit()
             print("   ✓ 成功关闭 AutoCAD")
-        except:
+        except Exception:
             print("   - 无法自动关闭 AutoCAD，请手动关闭")
 
         return True
@@ -138,7 +138,7 @@ def check_registry():
                         break
 
                 winreg.CloseKey(key)
-            except WindowsError:
+            except OSError:
                 print(f"   ✗ 未找到: {path}")
 
     except Exception as e:
@@ -153,7 +153,7 @@ if __name__ == "__main__":
     # 额外检查注册表
     try:
         check_registry()
-    except:
+    except Exception:
         pass
 
     print("\n" + "=" * 70)

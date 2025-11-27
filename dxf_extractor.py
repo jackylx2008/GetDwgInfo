@@ -453,9 +453,26 @@ class DXFExtractor:
 # 示例用法
 if __name__ == "__main__":
     # 配置日志
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-    )
+    try:
+        from logging_config import setup_logger
+
+        setup_logger(
+            log_level=logging.INFO,
+            log_file="./logs/dxf_extractor.log",
+            filemode="w",
+        )
+    except ImportError:
+        # 如果找不到 logging_config，回退到基本配置
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(levelname)s - %(message)s",
+            handlers=[
+                logging.FileHandler(
+                    "./logs/dxf_extractor.log", mode="w", encoding="utf-8"
+                ),
+                logging.StreamHandler(),
+            ],
+        )
 
     from pathlib import Path
 

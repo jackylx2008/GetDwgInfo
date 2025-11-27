@@ -128,7 +128,9 @@ class DWGExtractor:
             dwg_path = os.path.abspath(dwg_path)
             # 连接到 AutoCAD - 使用 win32com 直接连接
             if not PYAUTOCAD_AVAILABLE or win32com is None:
-                raise RuntimeError("无法连接到 AutoCAD：未安装 pywin32 (win32com) 模块，请先安装。")
+                raise RuntimeError(
+                    "无法连接到 AutoCAD：未安装 pywin32 (win32com) 模块，请先安装。"
+                )
             try:
                 # 尝试获取已运行的 AutoCAD 实例
                 # 尝试获取已运行的 AutoCAD 实例
@@ -217,12 +219,10 @@ class DWGExtractor:
                     entity_type = entity.ObjectName
 
                     # 提取文本元素
-                    if (
-                        extract_config.get("extract_text", True) and 
-                        entity_type in [
+                    if extract_config.get("extract_text", True) and entity_type in [
                         "AcDbText",
                         "AcDbMText",
-                    ]):
+                    ]:
                         self._extract_text(entity)
 
                     # 提取线条元素
@@ -233,11 +233,11 @@ class DWGExtractor:
                         self._extract_line(entity)
 
                     # 提取多段线（可能是矩形）
-                    elif (extract_config.get("extract_rects", True) and entity_type in [
+                    elif extract_config.get("extract_rects", True) and entity_type in [
                         "AcDbPolyline",
                         "AcDb2dPolyline",
                         "AcDbLwPolyline",
-                    ]):
+                    ]:
                         self._extract_polyline(entity)
 
                     # 提取圆形
@@ -328,7 +328,9 @@ class DWGExtractor:
 
             # 获取其他属性
             text_elem.height = float(self._safe_get_attribute(entity, "Height", 0.0))
-            text_elem.rotation = float(self._safe_get_attribute(entity, "Rotation", 0.0))
+            text_elem.rotation = float(
+                self._safe_get_attribute(entity, "Rotation", 0.0)
+            )
             color_val = self._safe_get_attribute(entity, "Color", 7)
             text_elem.color = int(color_val) if color_val is not None else 7
             text_elem.layer = str(self._safe_get_attribute(entity, "Layer", ""))
@@ -357,7 +359,6 @@ class DWGExtractor:
                 line_elem.end_y = end[1]
                 line_elem.end_z = end[2] if len(end) > 2 else 0.0
             # 获取其他属性
-            color_val = self._safe_get_attribute(entity, "Color", 7)
             lw_val = self._safe_get_attribute(entity, "Lineweight", -1)
             line_elem.lineweight = int(lw_val) if lw_val is not None else -1
 
@@ -407,17 +408,15 @@ class DWGExtractor:
                 rect_elem.width = max_x - min_x
                 rect_elem.height = max_y - min_y
                 color_val = self._safe_get_attribute(entity, "Color", 7)
-                rect_elem.color = (
-                    int(color_val) if color_val is not None
-                    else 7)
-                rect_elem.layer = str(
-                    self._safe_get_attribute(entity, "Layer", ""))
+                rect_elem.color = int(color_val) if color_val is not None else 7
+                rect_elem.layer = str(self._safe_get_attribute(entity, "Layer", ""))
                 rect_elem.is_closed = is_closed
 
                 self.elements["rects"].append(asdict(rect_elem))
 
         except Exception as e:
             self.logger.warning("提取多段线元素失败: %s", str(e))
+
     def _extract_circle(self, entity):
         """提取圆形元素"""
         try:
@@ -429,15 +428,12 @@ class DWGExtractor:
                 circle_elem.center_x = center[0]
                 circle_elem.center_y = center[1]
                 circle_elem.center_z = center[2] if len(center) > 2 else 0.0
-            circle_elem.radius = float(
-                self._safe_get_attribute(entity, "Radius", 0.0))
+            circle_elem.radius = float(self._safe_get_attribute(entity, "Radius", 0.0))
 
             # 获取其他属性
             color_val = self._safe_get_attribute(entity, "Color", 7)
-            circle_elem.color = (
-                int(color_val) if color_val is not None else 7)
-            circle_elem.layer = str(
-                self._safe_get_attribute(entity, "Layer", ""))
+            circle_elem.color = int(color_val) if color_val is not None else 7
+            circle_elem.layer = str(self._safe_get_attribute(entity, "Layer", ""))
 
             self.elements["circles"].append(asdict(circle_elem))
 

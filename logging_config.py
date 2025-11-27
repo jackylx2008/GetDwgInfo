@@ -12,12 +12,13 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
-def setup_logger(log_level=logging.DEBUG, log_file="./logs/app.log"):
+def setup_logger(log_level=logging.DEBUG, log_file="./logs/app.log", filemode="w"):
     """
     设置日志记录器。
 
     :param log_level: 日志级别，默认为 DEBUG。
     :param log_file: 日志文件路径，默认为 ./logs/app.log。
+    :param filemode: 文件打开模式，默认为 'w' (覆盖)。
     :return: 配置好的日志记录器。
     """
     # 创建日志文件夹
@@ -30,19 +31,21 @@ def setup_logger(log_level=logging.DEBUG, log_file="./logs/app.log"):
     app_logger = logging.getLogger()
     app_logger.setLevel(log_level)
 
-    # 避免重复添加处理器
-    if not app_logger.handlers:
-        # 控制台日志处理器
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(logging.Formatter(log_format))
+    # 清除已有的处理器，避免重复添加
+    if app_logger.handlers:
+        app_logger.handlers.clear()
 
-        # 文件日志处理器
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(logging.Formatter(log_format))
+    # 控制台日志处理器
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(logging.Formatter(log_format))
 
-        # 添加处理器
-        app_logger.addHandler(console_handler)
-        app_logger.addHandler(file_handler)
+    # 文件日志处理器
+    file_handler = logging.FileHandler(log_file, mode=filemode, encoding="utf-8")
+    file_handler.setFormatter(logging.Formatter(log_format))
+
+    # 添加处理器
+    app_logger.addHandler(console_handler)
+    app_logger.addHandler(file_handler)
 
     return app_logger
 

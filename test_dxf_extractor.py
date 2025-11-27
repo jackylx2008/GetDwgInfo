@@ -25,10 +25,10 @@ def test_dxf_extractor():
     # 检查测试文件是否存在
     if not os.path.exists(test_file):
         print(f"⚠ 测试文件不存在: {test_file}")
-        print(f"请将 DXF 文件放入 input/ 目录")
+        print("请将 DXF 文件放入 input/ 目录")
         return False
 
-    print(f"测试文件: {test_file}")
+    print("测试文件: {}".format(test_file))
     print("-" * 70)
 
     try:
@@ -121,7 +121,7 @@ def test_dxf_extractor():
             print(f"✓ CSV 文件已保存: {output_file}")
             print(f"  文件大小: {file_size} 字节\n")
         else:
-            print(f"✗ CSV 文件保存失败\n")
+            print("✗ CSV 文件保存失败\n")
             return False
 
         print_section("✓ 所有测试通过!")
@@ -187,6 +187,19 @@ def test_custom_config():
 
 def main():
     """主测试流程"""
+    # 配置日志
+    try:
+        from logging_config import setup_logger
+        import logging
+
+        setup_logger(
+            log_level=logging.INFO,
+            log_file="./logs/test_dxf_extractor.log",
+            filemode="w",
+        )
+    except ImportError:
+        pass
+
     print("=" * 70)
     print("DXF 元素提取器测试套件")
     print("=" * 70)
