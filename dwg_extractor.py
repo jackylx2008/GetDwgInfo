@@ -113,7 +113,7 @@ class DWGExtractor:
                 "extract_circles": True,
             }
 
-        acad = None
+        acad_app = None
         doc = None
         original_doc = None
 
@@ -301,6 +301,25 @@ class DWGExtractor:
                 # 最后一次尝试仍失败，返回默认值
                 return default
 
+    def _to_int(self, value, default: int = 0) -> int:
+        """安全地将值转换为 int，处理 None/未知类型"""
+        try:
+            if value is None:
+                return default
+            # 某些 COM 对象可能返回可索引或可转换类型
+            return int(value)  # type: ignore[arg-type]
+        except Exception:
+            return default
+
+    def _to_float(self, value, default: float = 0.0) -> float:
+        """安全地将值转换为 float，处理 None/未知类型"""
+        try:
+            if value is None:
+                return default
+            return float(value)  # type: ignore[arg-type]
+        except Exception:
+            return default
+
     def _extract_text(self, entity):
         """提取文本元素"""
         try:
@@ -327,9 +346,11 @@ class DWGExtractor:
                     text_elem.z = origin[2] if len(origin) > 2 else 0.0
 
             # 获取其他属性
-            text_elem.height = float(self._safe_get_attribute(entity, "Height", 0.0))
-            text_elem.rotation = float(
-                self._safe_get_attribute(entity, "Rotation", 0.0)
+            text_elem.height = self._to_float(
+                self._safe_get_attribute(entity, "Height", 0.0), 0.0
+            )
+            text_elem.rotation = self._to_float(
+                self._safe_get_attribute(entity, "Rotation", 0.0), 0.0
             )
             color_val = self._safe_get_attribute(entity, "Color", 7)
             text_elem.color = int(color_val) if color_val is not None else 7
@@ -360,7 +381,7 @@ class DWGExtractor:
                 line_elem.end_z = end[2] if len(end) > 2 else 0.0
             # 获取其他属性
             lw_val = self._safe_get_attribute(entity, "Lineweight", -1)
-            line_elem.lineweight = int(lw_val) if lw_val is not None else -1
+            line_elem.lineweight = self._to_int(lw_val, -1)
 
             self.elements["lines"].append(asdict(line_elem))
 
@@ -387,7 +408,7 @@ class DWGExtractor:
                 "type": "POLYLINE",
                 "vertices": vertices,
                 "is_closed": is_closed,
-                "color": int(self._safe_get_attribute(entity, "Color", 7)),
+                "color": self._to_int(self._safe_get_attribute(entity, "Color", 7), 7),
                 "layer": str(self._safe_get_attribute(entity, "Layer", "")),
             }
             self.elements["polylines"].append(polyline_data)
@@ -428,7 +449,9 @@ class DWGExtractor:
                 circle_elem.center_x = center[0]
                 circle_elem.center_y = center[1]
                 circle_elem.center_z = center[2] if len(center) > 2 else 0.0
-            circle_elem.radius = float(self._safe_get_attribute(entity, "Radius", 0.0))
+            circle_elem.radius = self._to_float(
+                self._safe_get_attribute(entity, "Radius", 0.0), 0.0
+            )
 
             # 获取其他属性
             color_val = self._safe_get_attribute(entity, "Color", 7)
