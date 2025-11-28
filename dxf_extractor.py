@@ -78,12 +78,22 @@ class PolylineElement:
 
 
 class DXFExtractor:
-    """DXF 文件元素提取器"""
+    """DXF 文件元素提取器
 
-    def __init__(self):
-        """初始化提取器"""
+    一个实例对应一个 DXF 文件。构造时打开文件并初始化元素容器。
+    """
+
+    def __init__(self, dxf_path: Optional[str] = None):
+        """初始化提取器
+
+        Args:
+            dxf_path: 可选，DXF 文件路径。传入时会立即打开文件。
+        """
         self.logger = logging.getLogger(__name__)
-        self.elements = {
+        self.doc = None
+        self.msp = None
+        self._dxf_path: Optional[str] = None
+        self.elements: Dict[str, List[Dict[str, Any]]] = {
             "texts": [],
             "lines": [],
             "rects": [],
@@ -91,25 +101,30 @@ class DXFExtractor:
             "polylines": [],
         }
 
-    def extract_from_file(
-        self, dxf_path: str, extract_config: Optional[Dict[str, bool]] = None
-    ) -> Dict[str, List]:
-        """
-        从 DXF 文件中提取元素
+        if dxf_path:
+            self.open(dxf_path)
 
-        Args:
-            dxf_path: DXF 文件路径
-            extract_config: 提取配置，指定要提取的元素类型
-                {
-                    "extract_text": True,    # 是否提取文本
-                    "extract_lines": True,   # 是否提取线条
-                    "extract_rects": True,   # 是否提取矩形
-                    "extract_circles": True, # 是否提取圆形
-                }
+    def open(self, dxf_path: str) -> None:
+        """打开 DXF 文件并准备模型空间"""
+        if not os.path.exists(dxf_path):
+            raise FileNotFoundError(f"DXF 文件不存在: {dxf_path}")
+        self._dxf_path = os.path.abspath(dxf_path)
+        try:
+            self.doc = ezdxf.readfile(self._dxf_path)  # type: ignore
+            self.msp = self.doc.modelspace()
+            self.logger.info("成功打开文件: %s", self._dxf_path)
+        except Exception as e:
+            self.doc = None
+            self.msp = None
+            raise RuntimeError(f"无法打开 DXF 文件: {str(e)}")
 
-        Returns:
-            包含各类元素的字典
-        """
+    def extract(
+        self, extract_config: Optional[Dict[str, bool]] = None
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """从已打开的 DXF 文件中提取元素"""
+        if self.msp is None:
+            raise RuntimeError("DXF 文件尚未打开，请先调用 open() 或在构造函数传入路径")
+
         # 默认配置
         if extract_config is None:
             extract_config = {
@@ -120,22 +135,6 @@ class DXFExtractor:
             }
 
         try:
-            self.logger.info("开始提取 DXF 文件: %s", dxf_path)
-
-            # 检查文件是否存在
-            if not os.path.exists(dxf_path):
-                raise FileNotFoundError(f"DXF 文件不存在: {dxf_path}")
-
-            # 获取绝对路径
-            dxf_path = os.path.abspath(dxf_path)
-
-            # 打开 DXF 文件
-            try:
-                doc = ezdxf.readfile(dxf_path)  # type: ignore
-                self.logger.info("成功打开文件: %s", dxf_path)
-            except Exception as e:
-                raise RuntimeError(f"无法打开 DXF 文件: {str(e)}")
-
             # 重置元素列表
             self.elements = {
                 "texts": [],
@@ -145,15 +144,12 @@ class DXFExtractor:
                 "polylines": [],
             }
 
-            # 获取模型空间
-            msp = doc.modelspace()
-
             # 统计实体数量
-            entity_count = len(list(msp))
+            entity_count = len(list(self.msp))
             self.logger.info("模型空间中共有 %d 个实体", entity_count)
 
             # 遍历所有实体
-            for entity in msp:
+            for entity in self.msp:
                 entity_type = "Unknown"  # 初始化默认值
                 try:
                     entity_type = entity.dxftype()
@@ -205,6 +201,22 @@ class DXFExtractor:
         except Exception as e:
             self.logger.error("读取 DXF 文件失败: %s", str(e))
             raise
+
+    # 输出方法：按元素类型返回
+    def get_texts(self) -> List[Dict[str, Any]]:
+        return self.elements.get("texts", [])
+
+    def get_lines(self) -> List[Dict[str, Any]]:
+        return self.elements.get("lines", [])
+
+    def get_rects(self) -> List[Dict[str, Any]]:
+        return self.elements.get("rects", [])
+
+    def get_circles(self) -> List[Dict[str, Any]]:
+        return self.elements.get("circles", [])
+
+    def get_polylines(self) -> List[Dict[str, Any]]:
+        return self.elements.get("polylines", [])
 
     def _extract_text(self, entity):
         """提取文本元素"""
@@ -411,16 +423,35 @@ class DXFExtractor:
 
         return all_elements
 
-    def save_to_csv(self, output_path: str) -> None:
+    def save_to_csv(self, output_path: str, types: Optional[List[str]] = None) -> None:
         """
         将提取的元素保存到 CSV 文件
 
         Args:
             output_path: 输出 CSV 文件路径
+            types: 需要保存的元素类型列表，如 ["text","line","rect","circle","polyline"]
         """
         try:
             # 获取所有元素
-            all_elements = self.get_all_elements()
+            if types:
+                selected = []
+                mapping = {
+                    "text": "texts",
+                    "line": "lines",
+                    "rect": "rects",
+                    "circle": "circles",
+                    "polyline": "polylines",
+                }
+                for t in types:
+                    key = mapping.get(t)
+                    if key and key in self.elements:
+                        for elem in self.elements[key]:
+                            e = elem.copy()
+                            e["type"] = t
+                            selected.append(e)
+                all_elements = selected
+            else:
+                all_elements = self.get_all_elements()
 
             if not all_elements:
                 self.logger.warning("没有元素可保存")
@@ -448,6 +479,10 @@ class DXFExtractor:
         except Exception as e:
             self.logger.error("保存 CSV 文件失败: %s", str(e))
             raise
+
+    # 以上是实例级 API：
+    # 1) extract() + get_all_elements() -> List[Dict]
+    # 2) extract() + save_to_csv() -> 写入 CSV
 
 
 # 示例用法
@@ -499,11 +534,9 @@ if __name__ == "__main__":
             print(f"正在处理: {dxf_file.name}")
 
             try:
-                # 创建提取器
-                extractor = DXFExtractor()
-
-                # 提取 DXF 文件
-                elements = extractor.extract_from_file(str(dxf_file))
+                # 创建提取器并提取
+                extractor = DXFExtractor(str(dxf_file))
+                elements = extractor.extract()
 
                 print("  提取结果:")
                 print(f"  - 文本: {len(elements['texts'])} 个")
