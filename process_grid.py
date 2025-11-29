@@ -5,8 +5,47 @@ import logging
 from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import dataclass
 from collections import defaultdict
+
+try:
+    import yaml
+except ImportError as exc:  # pragma: no cover - dependency check
+    raise ImportError(
+        "需要安装 PyYAML 才能解析 config.yaml，请执行 `pip install pyyaml`"
+    ) from exc
+
 from dxf_extractor import DXFExtractor
 from logging_config import setup_logger
+
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(BASE_DIR, "config.yaml")
+DEFAULT_INPUT_FILE = ""
+DEFAULT_JSON_OUTPUT = "./output/grid_axes.json"
+DEFAULT_TOLERANCE = 100.0
+DEFAULT_MIN_AXIS_LENGTH = 2000.0
+DEFAULT_SEARCH_RADIUS = 5000.0
+DEFAULT_LOG_FILE = "./logs/process_grid.log"
+
+
+def load_config(path: str = CONFIG_PATH) -> Dict[str, Any]:
+    if not os.path.exists(path):
+        return {}
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+
+
+def resolve_path(path_value: Optional[str]) -> Optional[str]:
+    if not path_value:
+        return path_value
+    if os.path.isabs(path_value):
+        return os.path.normpath(path_value)
+    return os.path.normpath(os.path.join(BASE_DIR, path_value))
+
+
+def parse_log_level(level_name: Optional[str], default: int = logging.INFO) -> int:
+    if not level_name:
+        return default
+    return getattr(logging, level_name.upper(), default)
 
 
 @dataclass
@@ -38,10 +77,18 @@ class GridNetwork:
     建筑轴网数据结构
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        tolerance: float = 100.0,
+        min_axis_length: float = 2000.0,
+        search_radius: float = 5000.0,
+    ):
         # 与 dxf_extractor.py 保持一致的 logger 使用方式
         # 具体的 handler / 格式由 logging_config.setup_logger 统一配置
         self.logger = logging.getLogger(__name__)
+        self.tolerance = tolerance
+        self.min_axis_length = min_axis_length
+        self.search_radius = search_radius
         self.raw_lines: List[Dict[str, Any]] = []
         self.raw_texts: List[Dict[str, Any]] = []
         self.raw_circles: List[Dict[str, Any]] = []
@@ -151,7 +198,7 @@ class GridNetwork:
 
         # 2. 线条聚类 (合并共线线段)
         # 容差值 (单位: 图纸单位，通常是mm)
-        TOLERANCE = 100.0  # 坐标归并容差
+        tolerance = self.tolerance
 
         vertical_groups = defaultdict(list)  # Key: round(x), Value: list of lines
         horizontal_groups = defaultdict(list)  # Key: round(y), Value: list of lines
@@ -168,12 +215,12 @@ class GridNetwork:
 
             # 判断方向
             if abs(x1 - x2) < 1.0:  # 垂直线
-                key = round((x1 + x2) / 2 / TOLERANCE) * TOLERANCE  # 归一化坐标
+                key = round((x1 + x2) / 2 / tolerance) * tolerance  # 归一化坐标
                 vertical_groups[key].append(
                     {"start_x": x1, "start_y": y1, "end_x": x2, "end_y": y2}
                 )
             elif abs(y1 - y2) < 1.0:  # 水平线
-                key = round((y1 + y2) / 2 / TOLERANCE) * TOLERANCE
+                key = round((y1 + y2) / 2 / tolerance) * tolerance
                 horizontal_groups[key].append(
                     {"start_x": x1, "start_y": y1, "end_x": x2, "end_y": y2}
                 )
@@ -199,7 +246,7 @@ class GridNetwork:
             ) / (2 * len(lines))
 
             # 忽略太短的轴线 (例如小于 2米)
-            if abs(max_y - min_y) < 2000:
+            if abs(max_y - min_y) < self.min_axis_length:
                 continue
 
             axis = GridAxis(
@@ -226,7 +273,7 @@ class GridNetwork:
                 line_data["start_y"] + line_data["end_y"] for line_data in lines
             ) / (2 * len(lines))
 
-            if abs(max_x - min_x) < 2000:
+            if abs(max_x - min_x) < self.min_axis_length:
                 continue
 
             axis = GridAxis(
@@ -242,7 +289,7 @@ class GridNetwork:
 
         # 4. 匹配轴号 (寻找端点附近的文本)
         # 搜索半径 (例如 5000mm，涵盖轴号圈的大小)
-        SEARCH_RADIUS = 5000.0
+        search_radius = self.search_radius
 
         matched_count = 0
         for axis in temp_axes:
@@ -275,7 +322,7 @@ class GridNetwork:
 
                 dist = min(d1, d2)
 
-                if dist < SEARCH_RADIUS and dist < min_dist:
+                if dist < search_radius and dist < min_dist:
                     min_dist = dist
                     best_label = content
 
@@ -316,31 +363,64 @@ class GridNetwork:
 
 
 def main():
-    input_file = "input/2025-11-28_国家会议中心二期主体轴网图.dxf"
-
     try:
-        # 使用项目统一的日志配置；与 dxf_extractor __main__ 区域保持一致思路
-        setup_logger(
-            log_level=logging.INFO,
-            log_file="./logs/process_grid.log",
-            filemode="w",
-        )
+        config = load_config()
+        process_cfg = config.get("process_grid", {})
+        log_cfg = process_cfg.get("log", {})
 
-        grid = GridNetwork()
+        log_level = parse_log_level(
+            log_cfg.get("level") or config.get("log_level"),
+            default=logging.INFO,
+        )
+        log_file = (
+            resolve_path(log_cfg.get("file"))
+            or resolve_path(config.get("log_file"))
+            or resolve_path(DEFAULT_LOG_FILE)
+        )
+        filemode = log_cfg.get("filemode", "w")
+
+        setup_logger(log_level=log_level, log_file=log_file, filemode=filemode)
+
+        tolerance = float(process_cfg.get("tolerance", DEFAULT_TOLERANCE))
+        min_axis_length = float(
+            process_cfg.get("min_axis_length", DEFAULT_MIN_AXIS_LENGTH)
+        )
+        search_radius = float(process_cfg.get("search_radius", DEFAULT_SEARCH_RADIUS))
+
+        grid = GridNetwork(
+            tolerance=tolerance,
+            min_axis_length=min_axis_length,
+            search_radius=search_radius,
+        )
         logger = logging.getLogger(__name__)
 
-        # 注意：这里最好传入轴线所在的图层关键字，例如 ['DOTE', 'AXIS', 'S-GRID']
-        # 如果不传，会尝试分析所有线条，可能会有杂线干扰
-        # 建议先运行一次看图层统计，然后填入这里
+        input_file = resolve_path(process_cfg.get("input_file")) or resolve_path(
+            DEFAULT_INPUT_FILE
+        )
+        if not input_file:
+            raise ValueError("未配置有效的 DXF 输入文件路径")
+        axis_layer_keywords = process_cfg.get("axis_layer_keywords")
+        if axis_layer_keywords:
+            axis_layer_keywords = [
+                str(k).strip() for k in axis_layer_keywords if str(k).strip()
+            ]
+        else:
+            axis_layer_keywords = None
+
+        json_output = resolve_path(
+            process_cfg.get("json_output") or DEFAULT_JSON_OUTPUT
+        )
+        if not json_output:
+            raise ValueError("未配置有效的 JSON 输出路径")
+
         logger.info("开始从 DXF 构建轴网: %s", input_file)
-        grid.load_from_dxf(input_file, axis_layer_keywords=None)
+        grid.load_from_dxf(input_file, axis_layer_keywords=axis_layer_keywords)
 
         logger.info("轴网解析完成，开始输出轴网信息表")
         grid.print_grid_info()
         logger.info("轴网信息表输出完成")
 
         # 保存轴网信息为 JSON
-        json_output = os.path.join("output", "grid_axes.json")
         grid.save_to_json(json_output)
 
     except Exception as e:

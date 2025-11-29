@@ -22,3 +22,16 @@ paths:
   output_dir: ./output  # 输出文件目录
   default_elements_file: elements.csv  # 默认元素数据文件名
   default_relationships_file: relationships.csv  # 默认关系数据文件名
+
+# 轴网提取脚本配置
+process_grid:
+  input_file: ./input/2025-11-28_国家会议中心二期主体轴网图.dxf
+  axis_layer_keywords: []  # 为空则分析所有线条
+  tolerance: 100.0  # 线段聚类容差
+  min_axis_length: 2000.0  # 轴线最小长度阈值
+  search_radius: 5000.0  # 轴号搜索半径
+  json_output: ./output/grid_axes.json  # 轴网数据输出路径
+  log:
+    level: INFO  # 该脚本日志级别
+    file: ./logs/process_grid.log  # 单独日志文件
+    filemode: w  # 写入模式（w/append）
