@@ -7,20 +7,30 @@
 import logging
 import os
 import sys
+from typing import Optional
 
 # 动态添加项目根目录到 sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
-def setup_logger(log_level=logging.DEBUG, log_file="./logs/app.log", filemode="w"):
+def setup_logger(
+    log_level: int = logging.DEBUG,
+    log_file: Optional[str] = None,
+    filemode: str = "w",
+):
     """
     设置日志记录器。
 
     :param log_level: 日志级别，默认为 DEBUG。
-    :param log_file: 日志文件路径，默认为 ./logs/app.log。
+    :param log_file: 日志文件路径，如果为 None，则根据主模块名自动生成，如 ./logs/process_grid.log。
     :param filemode: 文件打开模式，默认为 'w' (覆盖)。
     :return: 配置好的日志记录器。
     """
+    # 如果未显式指定日志文件，则按“一个脚本一个日志”规则自动生成
+    if log_file is None:
+        main_module = os.path.splitext(os.path.basename(sys.argv[0]))[0] or "app"
+        log_file = os.path.join(".", "logs", f"{main_module}.log")
+
     # 创建日志文件夹
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
 

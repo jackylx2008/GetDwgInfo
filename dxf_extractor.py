@@ -104,6 +104,12 @@ class DXFExtractor:
         if dxf_path:
             self.open(dxf_path)
 
+    def _round_coord(self, value: float) -> float:
+        """保留4位小数，绝对值小于0.0001则为0.0"""
+        if abs(value) < 0.0001:
+            return 0.0
+        return float(f"{value:.4f}")
+
     def open(self, dxf_path: str) -> None:
         """打开 DXF 文件并准备模型空间"""
         if not os.path.exists(dxf_path):
@@ -233,9 +239,11 @@ class DXFExtractor:
             # 获取插入点
             if hasattr(entity.dxf, "insert"):
                 insert_point = entity.dxf.insert
-                text_elem.x = insert_point[0]
-                text_elem.y = insert_point[1]
-                text_elem.z = insert_point[2] if len(insert_point) > 2 else 0.0
+                text_elem.x = self._round_coord(insert_point[0])
+                text_elem.y = self._round_coord(insert_point[1])
+                text_elem.z = self._round_coord(
+                    insert_point[2] if len(insert_point) > 2 else 0.0
+                )
 
             # 获取其他属性
             text_elem.height = (
@@ -261,15 +269,17 @@ class DXFExtractor:
             # 获取起点和终点
             if hasattr(entity.dxf, "start"):
                 start = entity.dxf.start
-                line_elem.start_x = start[0]
-                line_elem.start_y = start[1]
-                line_elem.start_z = start[2] if len(start) > 2 else 0.0
+                line_elem.start_x = self._round_coord(start[0])
+                line_elem.start_y = self._round_coord(start[1])
+                line_elem.start_z = self._round_coord(
+                    start[2] if len(start) > 2 else 0.0
+                )
 
             if hasattr(entity.dxf, "end"):
                 end = entity.dxf.end
-                line_elem.end_x = end[0]
-                line_elem.end_y = end[1]
-                line_elem.end_z = end[2] if len(end) > 2 else 0.0
+                line_elem.end_x = self._round_coord(end[0])
+                line_elem.end_y = self._round_coord(end[1])
+                line_elem.end_z = self._round_coord(end[2] if len(end) > 2 else 0.0)
 
             # 获取其他属性
             line_elem.color = entity.dxf.color if hasattr(entity.dxf, "color") else 7
@@ -295,11 +305,21 @@ class DXFExtractor:
                 # LWPOLYLINE - get_points() 返回 'format' 格式的点
                 # 需要指定格式，默认 'xyb' 包含 x, y, bulge
                 points = list(entity.get_points("xy"))  # 只获取 x, y
-                vertices = [(p[0], p[1], 0.0) for p in points]
+                vertices = [
+                    (self._round_coord(p[0]), self._round_coord(p[1]), 0.0)
+                    for p in points
+                ]
             elif hasattr(entity, "points"):
                 # POLYLINE
                 points = list(entity.points())
-                vertices = [(p[0], p[1], p[2] if len(p) > 2 else 0.0) for p in points]
+                vertices = [
+                    (
+                        self._round_coord(p[0]),
+                        self._round_coord(p[1]),
+                        self._round_coord(p[2] if len(p) > 2 else 0.0),
+                    )
+                    for p in points
+                ]
 
             if len(vertices) < 3:
                 return
@@ -332,10 +352,10 @@ class DXFExtractor:
 
                 if is_rect:
                     rect_elem = RectElement()
-                    rect_elem.x = min_x
-                    rect_elem.y = min_y
-                    rect_elem.width = max_x - min_x
-                    rect_elem.height = max_y - min_y
+                    rect_elem.x = self._round_coord(min_x)
+                    rect_elem.y = self._round_coord(min_y)
+                    rect_elem.width = self._round_coord(max_x - min_x)
+                    rect_elem.height = self._round_coord(max_y - min_y)
                     rect_elem.color = (
                         entity.dxf.color if hasattr(entity.dxf, "color") else 7
                     )
@@ -370,12 +390,14 @@ class DXFExtractor:
             # 获取圆心
             if hasattr(entity.dxf, "center"):
                 center = entity.dxf.center
-                circle_elem.center_x = center[0]
-                circle_elem.center_y = center[1]
-                circle_elem.center_z = center[2] if len(center) > 2 else 0.0
+                circle_elem.center_x = self._round_coord(center[0])
+                circle_elem.center_y = self._round_coord(center[1])
+                circle_elem.center_z = self._round_coord(
+                    center[2] if len(center) > 2 else 0.0
+                )
 
             # 获取半径
-            circle_elem.radius = (
+            circle_elem.radius = self._round_coord(
                 entity.dxf.radius if hasattr(entity.dxf, "radius") else 0.0
             )
 
@@ -468,11 +490,20 @@ class DXFExtractor:
             # 确保 type 字段在第一列
             fieldnames = ["type"] + sorted([f for f in fieldnames if f != "type"])
 
+            # 格式化浮点数为字符串 (保留4位小数)
+            formatted_elements = []
+            for elem in all_elements:
+                new_elem = elem.copy()
+                for k, v in new_elem.items():
+                    if isinstance(v, float):
+                        new_elem[k] = f"{v:.4f}"
+                formatted_elements.append(new_elem)
+
             # 写入 CSV
             with open(output_path, "w", newline="", encoding="utf-8") as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
-                writer.writerows(all_elements)
+                writer.writerows(formatted_elements)
 
             self.logger.info("成功保存 %d 个元素到: %s", len(all_elements), output_path)
 
