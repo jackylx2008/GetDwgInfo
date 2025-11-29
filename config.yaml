@@ -25,7 +25,7 @@ paths:
 
 # 轴网提取脚本配置
 process_grid:
-  input_file: ./input/2025-11-28_国家会议中心二期主体轴网图.dxf
+  input_file: null  # 请在 private.yaml 中配置实际 DXF 路径
   axis_layer_keywords: []  # 为空则分析所有线条
   tolerance: 100.0  # 线段聚类容差
   min_axis_length: 2000.0  # 轴线最小长度阈值
@@ -35,3 +35,19 @@ process_grid:
     level: INFO  # 该脚本日志级别
     file: ./logs/process_grid.log  # 单独日志文件
     filemode: w  # 写入模式（w/append）
+
+# 文字定位脚本配置
+grid_locator:
+  dxf_file: null  # 请在 private.yaml 中配置实际 DXF 路径
+  grid_json: ./output/grid_axes.json
+  output_csv: ./output/text_positions.csv
+  log:
+    level: INFO
+    file: ./logs/grid_locator.log
+    filemode: w
+  search:
+    max_axis_gap: 999999.0  # 可选：最大轴距容忍，用于判断是否超出轴网
+  space_detection:
+    enabled: true
+    min_lines: 4
+    tolerance: 0.001

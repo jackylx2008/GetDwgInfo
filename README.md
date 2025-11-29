@@ -87,6 +87,25 @@ python dxf_extractor.py
 2. 提取文本、线条、矩形、圆形等元素
 3. 在 `output/` 目录生成对应的 CSV 文件（如 `test_elements.csv`）
 
+#### 轴网定位与闭合空间检测
+
+最近新增了“轴网 → 文字/空间”定位流程，分为两个脚本：
+
+1. **process_grid.py**：根据 DXF 线条/轴号提取轴网，并输出 `output/grid_axes.json`。
+2. **grid_locator.py**：读取 `grid_axes.json` 与原始 DXF，定位所有文字在轴网中的最近轴/跨距，并检测是否存在由 ≥4 根线段闭合的空间（若非闭合则输出单线段位置）。
+
+运行示例：
+
+```bash
+# 1) 生成轴网数据
+python process_grid.py
+
+# 2) 定位文字并检测闭合空间
+python grid_locator.py
+```
+
+> 提示：`grid_locator.py` 支持 `space_detection.tolerance`、`space_detection.min_lines` 等参数；结果会写入 `output/text_positions.csv`，同时在日志中打印闭合空间统计。
+
 ### 2. Python 代码调用
 
 你也可以在自己的 Python 脚本中导入使用。
@@ -135,9 +154,12 @@ extractor.save_to_csv("output/test_dwg_elements.csv")
 ```text
 GetDwgInfo/
 ├── config.yaml             # 配置文件
+├── private.yaml            # 本地敏感配置（已加入 .gitignore）
 ├── logging_config.py       # 日志配置模块
 ├── dwg_extractor.py        # DWG 元素提取模块 (依赖 AutoCAD)
 ├── dxf_extractor.py        # DXF 元素提取模块 (独立，无依赖)
+├── process_grid.py         # 轴网提取脚本，输出 grid_axes.json
+├── grid_locator.py         # 文字定位 + 闭合空间检测脚本
 ├── convert_dwg_to_dxf.py   # DWG 转 DXF 工具
 ├── diagnose_autocad.py     # AutoCAD 环境诊断工具
 ├── test_dwg_extractor.py   # DWG 提取测试脚本
@@ -153,6 +175,21 @@ GetDwgInfo/
 ```
 
 ## 更新日志
+
+### 2025-11-29 更新
+
+#### 新增功能（轴网定位）
+
+1. **AxisGrid 组件**：集中管理轴网定位逻辑，支持从 JSON 加载轴网、定位任意点、计算轴跨。
+2. **grid_locator 脚本**：
+   - 定位 DXF 中的文字元素，输出最近轴及所在跨距到 CSV。
+   - 自动检测由 4 根及以上线条构成的闭合空间，并记录其在轴网中的位置；若未闭合，则记录各线段的轴位。
+3. **空间检测配置**：在 `config.yaml -> grid_locator.space_detection` 中可配置容差、最少线段等参数。
+
+#### 配置改进
+
+- `config.yaml` 支持与 `private.yaml` 深度合并，可将真实文件路径等敏感信息放在 `private.yaml` 中，避免提交到版本库。
+- 新增 `logs/grid_locator.log` 作为 grid_locator 专用日志。
 
 ### 2025-11-15 更新
 

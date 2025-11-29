@@ -19,6 +19,7 @@ from logging_config import setup_logger
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.yaml")
+PRIVATE_CONFIG_PATH = os.path.join(BASE_DIR, "private.yaml")
 DEFAULT_INPUT_FILE = ""
 DEFAULT_JSON_OUTPUT = "./output/grid_axes.json"
 DEFAULT_TOLERANCE = 100.0
@@ -27,11 +28,30 @@ DEFAULT_SEARCH_RADIUS = 5000.0
 DEFAULT_LOG_FILE = "./logs/process_grid.log"
 
 
-def load_config(path: str = CONFIG_PATH) -> Dict[str, Any]:
+def _load_yaml(path: str) -> Dict[str, Any]:
     if not os.path.exists(path):
         return {}
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
+
+
+def _deep_update(target: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(target.get(key), dict):
+            _deep_update(target[key], value)  # type: ignore[index]
+        else:
+            target[key] = value
+    return target
+
+
+def load_config(
+    path: str = CONFIG_PATH, private_path: str = PRIVATE_CONFIG_PATH
+) -> Dict[str, Any]:
+    config = _load_yaml(path)
+    private_cfg = _load_yaml(private_path)
+    if private_cfg:
+        config = _deep_update(config, private_cfg)
+    return config
 
 
 def resolve_path(path_value: Optional[str]) -> Optional[str]:
