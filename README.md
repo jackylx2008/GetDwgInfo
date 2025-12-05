@@ -106,6 +106,21 @@ python grid_locator.py
 
 > 提示：`grid_locator.py` 支持 `space_detection.tolerance`、`space_detection.min_lines` 等参数；结果会写入 `output/text_positions.csv`，同时在日志中打印闭合空间统计。
 
+#### CSV 批量计数 (csv_counter)
+
+按配置统计 `output` 目录下所有 CSV 中指定列等于指定字符串的行数。
+
+```bash
+# 运行 CSV 计数
+python csv_counter.py
+```
+
+配置要点：
+
+- 在 `config.yaml -> csv_counter` 设置 `folder`（默认 `./output`）、`column`、`value`、`delimiter`、`encoding`、`recursive` 等。
+- 可在 `private.yaml` 覆盖 `column`/`value` 等敏感或本地化配置，加载时会自动深度合并。
+- 日志输出到 `logs/csv_counter.log`，启动会回显当前生效的列名和值，便于确认覆盖结果。
+
 ### 2. Python 代码调用
 
 你也可以在自己的 Python 脚本中导入使用。
@@ -160,6 +175,7 @@ GetDwgInfo/
 ├── dxf_extractor.py        # DXF 元素提取模块 (独立，无依赖)
 ├── process_grid.py         # 轴网提取脚本，输出 grid_axes.json
 ├── grid_locator.py         # 文字定位 + 闭合空间检测脚本
+├── csv_counter.py          # CSV 计数脚本，按配置统计指定列的匹配行
 ├── convert_dwg_to_dxf.py   # DWG 转 DXF 工具
 ├── diagnose_autocad.py     # AutoCAD 环境诊断工具
 ├── test_dwg_extractor.py   # DWG 提取测试脚本
@@ -175,6 +191,14 @@ GetDwgInfo/
 ```
 
 ## 更新日志
+
+### 2025-12-05 更新
+
+#### 新增功能（CSV 计数）
+
+1. **csv_counter.py**：扫描配置目录下的 CSV 文件，统计指定列等于指定字符串的行数。
+2. **配置支持**：`config.yaml -> csv_counter` 提供目录、列名、目标值、分隔符、编码、递归开关及日志设置；支持 `private.yaml` 覆盖敏感值。
+3. **日志回显**：运行时打印当前生效的列和值到日志，便于核对配置与覆盖效果。
 
 ### 2025-11-29 更新
 

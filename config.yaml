@@ -51,3 +51,14 @@ grid_locator:
     enabled: true
     min_lines: 4
     tolerance: 0.001
+
+# CSV 统计脚本配置
+csv_counter:
+  folder: ./output    # 要扫描的 CSV 目录
+  delimiter: ","     # CSV 分隔符
+  encoding: utf-8     # 文件编码
+  recursive: false    # 是否递归扫描子目录
+  log:
+    level: INFO
+    file: ./logs/csv_counter.log
+    filemode: w
