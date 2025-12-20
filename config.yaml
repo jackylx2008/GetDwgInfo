@@ -62,3 +62,16 @@ csv_counter:
     level: INFO
     file: ./logs/csv_counter.log
     filemode: w
+
+# 统计特定字符串脚本配置
+string_counter:
+  folder: ./input
+  target_strings: ["NB"]
+  match_mode: "strict"   # 可选: "strict" (完全一致) 或 "contains" (包含即可)
+  encoding: utf-8
+  recursive: false
+  output_file: ./output/string_details_summary.csv
+  log:
+    level: INFO
+    file: ./logs/string_counter.log
+    filemode: w

@@ -10,6 +10,8 @@ import logging
 from dataclasses import dataclass, asdict, field
 from typing import List, Dict, Any, Optional
 import ezdxf
+import json
+from pathlib import Path
 
 
 @dataclass
@@ -411,114 +413,97 @@ class DXFExtractor:
             self.logger.warning("提取圆形元素失败: %s", str(e))
 
     def get_all_elements(self) -> List[Dict[str, Any]]:
-        """
-        获取所有元素的扁平列表
-
-        Returns:
-            包含所有元素的列表，每个元素都有 type 字段标识类型
-        """
         all_elements = []
-
-        # 添加文本元素
-        for text in self.elements["texts"]:
-            element = text.copy()
-            element["type"] = "text"
-            all_elements.append(element)
-
-        # 添加线条元素
-        for line in self.elements["lines"]:
-            element = line.copy()
-            element["type"] = "line"
-            all_elements.append(element)
-
-        # 添加矩形元素
-        for rect in self.elements["rects"]:
-            element = rect.copy()
-            element["type"] = "rect"
-            all_elements.append(element)
-
-        # 添加圆形元素
-        for circle in self.elements["circles"]:
-            element = circle.copy()
-            element["type"] = "circle"
-            all_elements.append(element)
-
+        for k, v in self.elements.items():
+            type_name = k.rstrip("s")  # 将 texts 转为 text
+            for item in v:
+                new_item = item.copy()
+                new_item["type"] = type_name
+                all_elements.append(new_item)
         return all_elements
 
-    def save_to_csv(self, output_path: str, types: Optional[List[str]] = None) -> None:
+    def save_to_csv(self, file_path: str) -> None:
         """
-        将提取的元素保存到 CSV 文件
-
-        Args:
-            output_path: 输出 CSV 文件路径
-            types: 需要保存的元素类型列表，如 ["text","line","rect","circle","polyline"]
+        旧接口，准备废弃
+        将所有元素保存到一个 CSV 文件
         """
-        try:
-            # 获取所有元素
-            if types:
-                selected = []
-                mapping = {
-                    "text": "texts",
-                    "line": "lines",
-                    "rect": "rects",
-                    "circle": "circles",
-                    "polyline": "polylines",
-                }
-                for t in types:
-                    key = mapping.get(t)
-                    if key and key in self.elements:
-                        for elem in self.elements[key]:
-                            e = elem.copy()
-                            e["type"] = t
-                            selected.append(e)
-                all_elements = selected
-            else:
-                all_elements = self.get_all_elements()
+        all_elements = []
+        for k, v in self.elements.items():
+            type_name = k.rstrip("s")
+            for item in v:
+                new_item = item.copy()
+                new_item["type"] = type_name
+                all_elements.append(new_item)
+        if not all_elements:
+            return
+        # 获取所有字段
+        fieldnames = set()
+        for item in all_elements:
+            fieldnames.update(item.keys())
+        fieldnames = list(fieldnames)
+        # 写入 CSV
+        with open(file_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for item in all_elements:
+                writer.writerow(item)
 
-            if not all_elements:
-                self.logger.warning("没有元素可保存")
-                return
+    def _write_csv(
+        self, file_path: str, data: List[Dict[str, Any]], type_name: str
+    ) -> None:
+        """将单一类型元素保存到 CSV 文件"""
+        if not data:
+            return
+        # 获取所有字段
+        fieldnames = set()
+        for item in data:
+            fieldnames.update(item.keys())
+        fieldnames = list(fieldnames)
+        # 写入 CSV
+        with open(file_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for item in data:
+                writer.writerow(item)
 
-            # 确保输出目录存在
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    def _write_json(self, file_path: str, data: List[Dict[str, Any]]) -> None:
+        """将单一类型元素保存到 JSON 文件"""
+        if not data:
+            return
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
-            # 获取所有可能的字段
-            fieldnames = set()
-            for element in all_elements:
-                fieldnames.update(element.keys())
+    def save_elements(
+        self, output_dir: str, format: str = "csv", types: Optional[List[str]] = None
+    ):
+        """分类导出主方法"""
+        type_mapping = {
+            "text": "texts",
+            "line": "lines",
+            "rect": "rects",
+            "circle": "circles",
+            "polyline": "polylines",
+        }
+        target_types = types if types else type_mapping.keys()
 
-            # 确保 type 字段在第一列
-            fieldnames = ["type"] + sorted([f for f in fieldnames if f != "type"])
+        out_path = Path(output_dir)
+        out_path.mkdir(parents=True, exist_ok=True)  # 自动创建目录
 
-            # 格式化浮点数为字符串 (保留4位小数)
-            formatted_elements = []
-            for elem in all_elements:
-                new_elem = elem.copy()
-                for k, v in new_elem.items():
-                    if isinstance(v, float):
-                        new_elem[k] = f"{v:.4f}"
-                formatted_elements.append(new_elem)
+        for t in target_types:
+            data = self.elements.get(type_mapping.get(t, ""), [])
+            if not data:
+                continue
 
-            # 写入 CSV
-            with open(output_path, "w", newline="", encoding="utf-8") as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(formatted_elements)
-
-            self.logger.info("成功保存 %d 个元素到: %s", len(all_elements), output_path)
-
-        except Exception as e:
-            self.logger.error("保存 CSV 文件失败: %s", str(e))
-            raise
-
-    # 以上是实例级 API：
-    # 1) extract() + get_all_elements() -> List[Dict]
-    # 2) extract() + save_to_csv() -> 写入 CSV
+            file_name = out_path / f"{t}s.{format}"
+            if format.lower() == "csv":
+                self._write_csv(str(file_name), data, t)
+            elif format.lower() == "json":
+                self._write_json(str(file_name), data)
 
 
 # 示例用法
 if __name__ == "__main__":
-    # 配置日志
+    # 配置日志 (保持不变)
     try:
         from logging_config import setup_logger
 
@@ -528,7 +513,6 @@ if __name__ == "__main__":
             filemode="w",
         )
     except ImportError:
-        # 如果找不到 logging_config，回退到基本配置
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s - %(levelname)s - %(message)s",
@@ -540,13 +524,9 @@ if __name__ == "__main__":
             ],
         )
 
-    from pathlib import Path
-
     # 定义输入输出目录
     input_dir = Path("input")
     output_dir = Path("output")
-
-    # 确保输出目录存在
     output_dir.mkdir(exist_ok=True)
 
     # 获取所有 DXF 文件
@@ -555,34 +535,38 @@ if __name__ == "__main__":
     if not dxf_files:
         print("未在 input 目录下找到 DXF 文件")
     else:
-        print(f"找到 {len(dxf_files)} 个 DXF 文件\n")
+        print(f"找到 {len(dxf_files)} 个 DXF 文件，准备提取文本信息...\n")
 
         success_count = 0
         fail_count = 0
 
-        # 遍历处理每个 DXF 文件
         for dxf_file in dxf_files:
             print(f"正在处理: {dxf_file.name}")
 
             try:
-                # 创建提取器并提取
+                # 1. 创建提取器
                 extractor = DXFExtractor(str(dxf_file))
-                elements = extractor.extract()
 
-                print("  提取结果:")
-                print(f"  - 文本: {len(elements['texts'])} 个")
-                print(f"  - 线条: {len(elements['lines'])} 个")
-                print(f"  - 矩形: {len(elements['rects'])} 个")
-                print(f"  - 圆形: {len(elements['circles'])} 个")
+                # 2. 【关键修改】：配置仅提取文本，关闭其他类型以提高效率
+                text_only_config = {
+                    "extract_text": True,
+                    "extract_lines": False,
+                    "extract_rects": False,
+                    "extract_circles": False,
+                }
+                elements = extractor.extract(extract_config=text_only_config)
 
-                # 生成输出文件名 (使用原文件名)
-                output_filename = dxf_file.stem + "_elements.csv"
-                output_path = output_dir / output_filename
+                print(f"  - 提取到文本实体: {len(elements['texts'])} 个")
 
-                # 保存到 CSV
-                extractor.save_to_csv(str(output_path))
-                print(f"  [SUCCESS] 已保存到: {output_path}\n")
+                # 3. 【关键修改】：使用 save_elements 仅导出文本到 CSV
+                # 为每个 DXF 文件创建一个子目录存放结果，或直接存入 output_dir
+                # 这里建议为每个文件建个子文件夹，避免多个 DXF 的 texts.csv 互相覆盖
+                file_output_path = output_dir / dxf_file.stem
+                extractor.save_elements(
+                    output_dir=str(file_output_path), format="csv", types=["text"]
+                )
 
+                print(f"  [SUCCESS] 文本已保存至: {file_output_path}/texts.csv\n")
                 success_count += 1
 
             except Exception as e:
