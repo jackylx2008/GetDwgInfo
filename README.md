@@ -87,6 +87,27 @@ python dxf_extractor.py
 2. 提取文本、线条、矩形、圆形等元素
 3. 在 `output/` 目录生成对应的 CSV 文件（如 `test_elements.csv`）
 
+#### DWG 转 DXF
+
+`convert_dwg_to_dxf.py` 使用 AutoCAD COM 接口批量把 DWG 转成 DXF，适合先把原始 DWG 统一转入 `input/` 后再用 DXF 流程处理。
+
+该脚本从本地配置文件 `convert_dwg_to_dxf.yaml` 读取目录。此文件通常包含本机绝对路径，已加入 `.gitignore`，不会提交到版本库。
+
+配置示例：
+
+```yaml
+dwg_dir: "D:/path/to/source_dwg"
+dxf_dir: "D:/path/to/GetDwgInfo/input"
+```
+
+运行：
+
+```bash
+python convert_dwg_to_dxf.py
+```
+
+日志输出到 `logs/convert_dwg_to_dxf.log`，转换结果会按成功数和失败文件清单写入日志。
+
 #### 轴网定位与闭合空间检测
 
 最近新增了“轴网 → 文字/空间”定位流程，分为两个脚本：
@@ -120,6 +141,33 @@ python csv_counter.py
 - 在 `config.yaml -> csv_counter` 设置 `folder`（默认 `./output`）、`column`、`value`、`delimiter`、`encoding`、`recursive` 等。
 - 可在 `private.yaml` 覆盖 `column`/`value` 等敏感或本地化配置，加载时会自动深度合并。
 - 日志输出到 `logs/csv_counter.log`，启动会回显当前生效的列名和值，便于确认覆盖结果。
+
+#### 关键字与指定图层文本统计
+
+`string_counter_details.py` 现在包含两个统计流程：
+
+1. **get_key_word**：读取 `config.yaml -> get_key_word`，统计目标字符串（如 `NB`）在 DXF 文本中的出现次数，并输出明细 CSV。
+2. **get_layer_text**：读取 `config.yaml -> get_layer_text`，提取指定图层上的文本，并输出明细 CSV。
+
+直接运行脚本会依次执行两个流程，并生成对比汇总：
+
+```bash
+python string_counter_details.py
+```
+
+默认输出：
+
+- `output/string_details_summary.csv`：关键字明细
+- `output/get_layer_text.csv`：指定图层文本明细
+- `output/compare_summary.csv`：按文件汇总关键字数量、图层数量和差值
+- `logs/string_details_summary.log`：处理日志
+
+配置要点：
+
+- `get_key_word.target_strings` 支持多个目标字符串。
+- `get_key_word.match_mode` 支持 `strict`（完全一致）和 `contains`（包含匹配）。
+- `get_layer_text.target_layers` 建议写成列表，例如 `["-暖表位置"]`，便于配置多个图层。
+- 两个流程都支持 `recursive` 控制是否递归扫描子目录。
 
 ### 2. Python 代码调用
 
@@ -176,7 +224,8 @@ GetDwgInfo/
 ├── process_grid.py         # 轴网提取脚本，输出 grid_axes.json
 ├── grid_locator.py         # 文字定位 + 闭合空间检测脚本
 ├── csv_counter.py          # CSV 计数脚本，按配置统计指定列的匹配行
-├── convert_dwg_to_dxf.py   # DWG 转 DXF 工具
+├── string_counter_details.py # 关键字统计 + 指定图层文本提取 + 差值汇总
+├── convert_dwg_to_dxf.py   # DWG 转 DXF 工具（读取本地 YAML 配置）
 ├── diagnose_autocad.py     # AutoCAD 环境诊断工具
 ├── test_dwg_extractor.py   # DWG 提取测试脚本
 ├── test_dxf_extractor.py   # DXF 提取测试脚本
@@ -191,6 +240,26 @@ GetDwgInfo/
 ```
 
 ## 更新日志
+
+### 2026-05-21 更新
+
+#### DWG 转 DXF 配置化
+
+1. **convert_dwg_to_dxf.py**：改为读取本地 `convert_dwg_to_dxf.yaml` 中的 `dwg_dir` 和 `dxf_dir`，不再依赖命令行参数传目录。
+2. **日志输出**：转换结果、失败文件和目录信息统一写入 `logs/convert_dwg_to_dxf.log`。
+3. **本地配置保护**：`convert_dwg_to_dxf.yaml` 已加入 `.gitignore`，避免把本机路径提交到版本库。
+
+#### 字符串与图层统计
+
+1. **配置重命名**：原 `string_counter` 配置改为 `get_key_word`。
+2. **新增 get_layer_text**：可按配置提取指定图层上的 DXF 文本，并输出 `output/get_layer_text.csv`。
+3. **新增对比汇总**：直接运行 `string_counter_details.py` 会生成 `output/compare_summary.csv`，按文件汇总关键字数量、图层数量和差值。
+
+#### 日志工具增强
+
+1. **路径标记解析**：`logging_config.py` 支持 `${CLOUDSTATION_ROOT}`、`{CLOUDSTATION_ROOT}`、`%CLOUDSTATION_ROOT%` 和以 `/` 开头的 CloudStation 相对路径。
+2. **平台根目录**：可通过 `CLOUDSTATION_ROOT` 或 `CLOUDSTATION_ROOT_WINDOWS` / `CLOUDSTATION_ROOT_MACOS` / `CLOUDSTATION_ROOT_LINUX` 指定同步目录根路径。
+3. **滚动日志**：文件日志改为 `RotatingFileHandler`，单文件最大 10MB，保留 5 个备份。
 
 ### 2025-12-05 更新
 
@@ -276,7 +345,7 @@ extractor.save_to_csv("output/file_elements.csv")
 
 - 项目名称: GetDwgInfo
 - 许可证: MIT License
-- 最后更新: 2025-11-15
+- 最后更新: 2026-05-21
 
 ## 许可证
 

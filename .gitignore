@@ -4,6 +4,7 @@ output/
 input/
 dwg/
 dxf/
+convert_dwg_to_dxf.yaml
 private.yaml
 # AutoCAD lock files
 *.dwg

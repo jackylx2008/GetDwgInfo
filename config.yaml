@@ -64,7 +64,7 @@ csv_counter:
     filemode: w
 
 # 统计特定字符串脚本配置
-string_counter:
+get_key_word:
   folder: ./input
   target_strings: ["NB"]
   match_mode: "strict"   # 可选: "strict" (完全一致) 或 "contains" (包含即可)
@@ -73,5 +73,16 @@ string_counter:
   output_file: ./output/string_details_summary.csv
   log:
     level: INFO
-    file: ./logs/string_counter.log
+    file: ./logs/string_details_summary.log
+    filemode: w
+
+# 统计特定字符串脚本配置
+get_layer_text:
+  folder: ./input
+  target_layers: ["-暖表位置"]
+  output_file: ./output/get_layer_text.csv
+  recursive: false
+  log:
+    level: INFO
+    file: ./logs/string_details_summary.log
     filemode: w
