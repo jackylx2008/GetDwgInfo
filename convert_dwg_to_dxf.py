@@ -7,6 +7,7 @@ DWG 转 DXF 转换工具
 
 import sys
 import logging
+import yaml
 from pathlib import Path
 from logging_config import setup_logger
 
@@ -88,6 +89,7 @@ def convert_dwg_to_dxf(dwg_dir="dwg", dxf_dir="dxf"):
 
     # 转换每个文件
     for dwg_file in dwg_files:
+        doc = None
         try:
             # 构建输出文件路径（不包含扩展名，让 AutoCAD 自动添加）
             dxf_file_stem = dwg_file.stem
@@ -152,22 +154,19 @@ def convert_dwg_to_dxf(dwg_dir="dwg", dxf_dir="dxf"):
 
             # 尝试关闭可能打开的文档
             try:
-                if "doc" in locals() and doc is not None:
+                if doc is not None:
                     doc.Close(False)
             except Exception:
                 pass
             continue
 
     # 输出总结
-    print("\n" + "=" * 70)
-    print("转换完成")
-    print("=" * 70)
-    print(f"成功: {success_count}/{len(dwg_files)}")
+    logger.info("成功: %d/%d", success_count, len(dwg_files))
 
     if failed_files:
-        print(f"\n失败的文件 ({len(failed_files)}):")
+        logger.warning("失败的文件 (%d):", len(failed_files))
         for filename in failed_files:
-            print(f"  - {filename}")
+            logger.warning("  - %s", filename)
 
     return success_count
 
@@ -180,27 +179,25 @@ def main():
         log_file="./logs/convert_dwg_to_dxf.log",
         filemode="w",
     )
+    logger = logging.getLogger(__name__)
 
-    print("=" * 70)
-    print("DWG 转 DXF 批量转换工具")
-    print("=" * 70)
+    # 读取配置
+    with open("./convert_dwg_to_dxf.yaml", "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+    dwg_dir = config.get("dwg_dir", "dwg")
+    dxf_dir = config.get("dxf_dir", "dxf")
 
-    # 获取命令行参数
-    dwg_dir = sys.argv[1] if len(sys.argv) > 1 else "dwg"
-    dxf_dir = sys.argv[2] if len(sys.argv) > 2 else "dxf"
-
-    print(f"\n源目录: {dwg_dir}")
-    print(f"目标目录: {dxf_dir}")
-    print("-" * 70)
+    logger.info("源目录: %s", dwg_dir)
+    logger.info("目标目录: %s", dxf_dir)
 
     # 执行转换
     count = convert_dwg_to_dxf(dwg_dir, dxf_dir)
 
     if count > 0:
-        print(f"\n[SUCCESS] 成功转换 {count} 个文件")
+        logger.info("[SUCCESS] 成功转换 %d 个文件", count)
         return 0
     else:
-        print("\n[FAILED] 没有文件被转换")
+        logger.error("[FAILED] 没有文件被转换")
         return 1
 
 
