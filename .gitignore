@@ -6,6 +6,7 @@ dwg/
 dxf/
 convert_dwg_to_dxf.yaml
 private.yaml
+grid_axes.json
 # AutoCAD lock files
 *.dwg
 *.dxf
